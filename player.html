@@ -36,7 +36,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js";
-        import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-database.js";
+        import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDC63eGF-F7ftg-gXv-YjsShTVzRPD91Qw",
@@ -63,7 +63,6 @@
 
         let inputHistory = [];
 
-        // リストをシャッフルする関数
         function shuffleArray(array) {
             for (let i = array.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
@@ -77,7 +76,6 @@
             const data = tagSnapshot.val();
             if (!data) return;
 
-            // 星座キーのリストを取得してシャッフル
             const zodiacKeys = Object.keys(messageMaster).filter(key => key !== "そのまま");
             const shuffledKeys = shuffleArray([...zodiacKeys]);
 
@@ -105,31 +103,42 @@
                 input.addEventListener('input', checkZodiacPuzzle);
             });
 
+            // ★【追加機能】モニターの文字を常時監視して自動クリア
+            onValue(ref(db, 'mystery/messages'), (snap) => {
+                const rawList = snap.val() || [];
+                const filteredList = rawList.filter(item => item !== "そのまま");
+                
+                // 「お」「わ」「り」の順で3文字揃っているか判定
+                const isCorrect = filteredList.length === 3 && 
+                                  filteredList[0] === "お" && 
+                                  filteredList[1] === "わ" && 
+                                  filteredList[2] === "り";
+
+                if (isCorrect) {
+                    // 条件が揃ったら即座に遷移
+                    window.location.href = `clear.html?id=${tagId}`;
+                }
+            });
+
             document.getElementById('sendBtn').onclick = async () => {
                 const val = document.getElementById('ansInput').value.trim();
                 const msgRef = ref(db, 'mystery/messages');
                 const modeRef = ref(db, 'mystery/mode');
                 
+                // 「おわり」の手動入力は不要になりましたが、互換性のために残しています
                 if (val === "おわり") {
-    const snap = await get(msgRef);
-    const rawList = snap.val() || [];
-    
-    // ★ 修正：システム用文字列「そのまま」を判定から除外する
-    const filteredList = rawList.filter(item => item !== "そのまま");
-    
-    // 純粋な回答が3つで、かつ「お」「わ」「り」の順かチェック
-    const isCorrect = filteredList.length === 3 && 
-                      filteredList[0] === "お" && 
-                      filteredList[1] === "わ" && 
-                      filteredList[2] === "り";
+                    const snap = await get(msgRef);
+                    const rawList = snap.val() || [];
+                    const filteredList = rawList.filter(item => item !== "そのまま");
+                    const isCorrect = filteredList.length === 3 && filteredList[0] === "お" && filteredList[1] === "わ" && filteredList[2] === "り";
 
-    if (isCorrect) {
-        window.location.href = `clear.html?id=${tagId}`;
-    } else {
-        alert("まだ終われません。モニターの表示を「お」「わ」「り」の順に揃えてください。");
-    }
-    return;
-}
+                    if (isCorrect) {
+                        window.location.href = `clear.html?id=${tagId}`;
+                    } else {
+                        alert("まだ終われません。モニターの表示を「お」「わ」「り」の順に揃えてください。");
+                    }
+                    return;
+                }
 
                 const result = messageMaster[val];
                 if (result) {
