@@ -70,15 +70,10 @@
             const data = tagSnapshot.val();
             if (!data) return;
 
-            // 星座メモ用のHTML生成
             let zodiacHTML = `<table class="zodiac-table"><tr><th>星座</th><th>文字</th></tr>`;
             Object.keys(messageMaster).forEach(key => {
                 if (key === "そのまま") return;
-                zodiacHTML += `
-                    <tr>
-                        <td>${key}座</td>
-                        <td><input type="text" class="z-input" data-ans="${messageMaster[key]}" maxlength="1"></td>
-                    </tr>`;
+                zodiacHTML += `<tr><td>${key}座</td><td><input type="text" class="z-input" data-ans="${messageMaster[key]}" maxlength="1"></td></tr>`;
             });
             zodiacHTML += `</table>`;
 
@@ -92,7 +87,6 @@
                 <button class="danger-btn" id="resetBtn">モニターリセット</button>
             `;
 
-            // 星座入力のリアルタイム判定イベント
             document.querySelectorAll('.z-input').forEach(input => {
                 input.addEventListener('input', checkZodiacPuzzle);
             });
@@ -102,17 +96,18 @@
                 const msgRef = ref(db, 'mystery/messages');
                 const modeRef = ref(db, 'mystery/mode');
                 
-                // --- クリア判定（モニターが「お」「わ」「り」の順の時のみ許可） ---
+                // --- クリア判定（モニターの状態を直接チェック） ---
                 if (val === "おわり") {
                     const snap = await get(msgRef);
                     const list = snap.val() || [];
+                    const filtered = list.filter(i => i !== "そのまま");
                     
-                    const isCorrectOrder = list.length === 3 && 
-                                           list[0] === "お" && 
-                                           list[1] === "わ" && 
-                                           list[2] === "り";
+                    const isCorrect = filtered.length === 3 && 
+                                      filtered[0] === "お" && 
+                                      filtered[1] === "わ" && 
+                                      filtered[2] === "り";
 
-                    if (isCorrectOrder) {
+                    if (isCorrect) {
                         window.location.href = `clear.html?id=${tagId}`;
                     } else {
                         alert("まだ終われません。モニターの表示順を「お」「わ」「り」に揃えてください。");
@@ -122,34 +117,36 @@
 
                 const result = messageMaster[val];
                 if (result) {
+                    // 緊急モード判定
                     inputHistory.push(val);
                     if (inputHistory.length > 3) inputHistory.shift();
-
                     const secretCombo = ["みずがめ", "おとめ", "さそり"];
-                    const isCombo = (inputHistory.length === 3) && secretCombo.every((v, i) => v === inputHistory[i]);
-
-                    if (isCombo) {
+                    if (inputHistory.length === 3 && secretCombo.every((v, i) => v === inputHistory[i])) {
                         await set(modeRef, "special");
                         alert("「そのまま」と打とう");
                     }
 
                     const snap = await get(msgRef);
                     let list = snap.val() || [];
-                    const modeSnap = await get(modeRef);
-                    const isSpecial = modeSnap.val() === "special";
+                    const isSortedMode = list.includes("そのまま");
 
-                    if (!isSpecial && list.length >= 3 && val !== "そのまま") {
-                        list = [];
-                    }
-                    
-                    list.push(result);
-                    await set(msgRef, list);
+                    // 【機能復旧】送信ロジック：3文字制限（ところてん方式）
+                    let currentChars = list.filter(item => item !== "そのまま");
                     
                     if (val === "そのまま") {
-                        alert("システムコマンド「そのまま」を送信しました。");
+                        // 「そのまま」送信時はフラグを追加するだけ
+                        if (!isSortedMode) list.push("そのまま");
                     } else {
-                        alert(`「${val}」を送信しました。`);
+                        currentChars.push(result);
+                        // 3文字を超えたら古いものを消す
+                        if (currentChars.length > 3) currentChars.shift();
+                        
+                        // リストを再構成（「そのまま」フラグを維持）
+                        list = isSortedMode ? ["そのまま", ...currentChars] : currentChars;
                     }
+                    
+                    await set(msgRef, list);
+                    alert(val === "そのまま" ? "リスト表示モード（青）を起動しました" : `「${val}」送信完了`);
                     document.getElementById('ansInput').value = "";
                 } else {
                     alert("キーワードが違います。");
@@ -157,7 +154,7 @@
             };
 
             document.getElementById('resetBtn').onclick = async () => {
-                if(confirm("全消去しますか？")){
+                if(confirm("全消去して初期状態に戻しますか？")){
                     await set(ref(db, 'mystery/messages'), null);
                     await set(ref(db, 'mystery/mode'), "normal");
                     inputHistory = [];
@@ -166,14 +163,12 @@
             };
         }
 
-        // 星座メモの正誤判定
         function checkZodiacPuzzle() {
             const inputs = document.querySelectorAll('.z-input');
             let correctCount = 0;
             inputs.forEach(input => {
                 if (input.value === input.dataset.ans) correctCount++;
             });
-
             if (correctCount === 12) {
                 const bg = document.getElementById('body-bg');
                 bg.classList.add('flash-effect');
@@ -181,7 +176,6 @@
                 document.getElementById('secret-msg').style.display = "block";
             }
         }
-
         init();
     </script>
 </body>
