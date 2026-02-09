@@ -1,21 +1,70 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>全データリセット - 管理画面</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 50px; background: #f8f9fa; }
+        .container { max-width: 400px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h2 { color: #333; margin-bottom: 20px; }
+        button { 
+            padding: 15px 25px; 
+            background: #dc3545; 
+            color: white; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            width: 100%; 
+            font-size: 18px; 
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        button:hover { background: #a71d2a; }
+        p { font-size: 14px; color: #666; margin-top: 15px; }
+    </style>
+</head>
 <body>
-    <h2>全データリセット</h2>
-    <button onclick="resetAll()">全タグの登録を解除する</button>
+    <div class="container">
+        <h2>全データリセット</h2>
+        <button onclick="resetAll()">全データを初期化する</button>
+        <p>※プレイヤー登録、モニター表示、<br>すべてのモードがリセットされます。</p>
+    </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js";
-        import { getDatabase, ref, remove } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-database.js";
+        import { getDatabase, ref, remove, set } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-database.js";
 
-        const firebaseConfig = { /* あなたの設定 */ };
+        const firebaseConfig = {
+            apiKey: "AIzaSyDC63eGF-F7ftg-gXv-YjsShTVzRPD91Qw",
+            authDomain: "mystery-trial.firebaseapp.com",
+            databaseURL: "https://mystery-trial-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "mystery-trial",
+            storageBucket: "mystery-trial.firebasestorage.app",
+            messagingSenderId: "320751112246",
+            appId: "1:320751112246:web:eb17abbde17c8bad08c897"
+        };
+
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
         window.resetAll = async () => {
-            if(confirm("全てのプレイヤー登録をリセットしてよろしいですか？")){
-                await remove(ref(db, 'tags')); // 'tags' 以下のデータを全削除
-                alert("リセット完了しました。");
+            if(confirm("全てのプレイヤー登録とゲームの進捗をリセットしてよろしいですか？\nこの操作は取り消せません。")){
+                try {
+                    // 1. プレイヤー登録データ(tags)を削除
+                    await remove(ref(db, 'tags'));
+                    
+                    // 2. モニターのメッセージ(messages)を削除
+                    await remove(ref(db, 'mystery/messages'));
+                    
+                    // 3. モードを normal に戻す
+                    await set(ref(db, 'mystery/mode'), "normal");
+                    
+                    alert("すべてのデータをリセットし、初期状態に戻しました。");
+                } catch (e) {
+                    console.error(e);
+                    alert("リセット中にエラーが発生しました。");
+                }
             }
         };
     </script>
