@@ -5,15 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>操作パネル（本人）</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 20px; background: #eef2f3; }
+        body { font-family: sans-serif; text-align: center; padding: 20px; background: #eef2f3; transition: background 0.5s; }
         .box { max-width: 450px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         input { padding: 12px; width: 85%; margin: 15px 0; border-radius: 5px; border: 1px solid #ccc; font-size: 16px; }
         button { padding: 12px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; width: 90%; font-size: 16px; margin-bottom: 10px; }
         .danger-btn { background: #dc3545; margin-top: 30px; font-size: 14px; opacity: 0.8; }
         hr { margin: 25px 0; border: 0; border-top: 1px solid #eee; }
+
+        /* 星座入力テーブル */
+        .zodiac-table { width: 100%; margin-top: 20px; border-collapse: collapse; font-size: 14px; }
+        .zodiac-table td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; }
+        .z-input { width: 40px !important; padding: 5px !important; margin: 0 !important; text-align: center; }
+
+        /* 隠し指示 */
+        #secret-msg { 
+            display: none; 
+            margin: 20px 0; 
+            padding: 15px; 
+            background: #fff3cd; 
+            color: #856404; 
+            font-weight: bold; 
+            border: 2px solid #ffeeba; 
+            border-radius: 8px; 
+            animation: pop 0.3s ease-out;
+        }
+        @keyframes pop { from { transform: scale(0.8); } to { transform: scale(1); } }
+        .flash-effect { background: #007bff !important; }
     </style>
 </head>
-<body>
+<body id="body-bg">
     <div id="main-content" class="box">読み込み中...</div>
 
     <script type="module">
@@ -21,14 +41,14 @@
         import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-database.js";
 
         const firebaseConfig = {
-  apiKey: "AIzaSyDC63eGF-F7ftg-gXv-YjsShTVzRPD91Qw",
-  authDomain: "mystery-trial.firebaseapp.com",
-  databaseURL: "https://mystery-trial-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "mystery-trial",
-  storageBucket: "mystery-trial.firebasestorage.app",
-  messagingSenderId: "320751112246",
-  appId: "1:320751112246:web:eb17abbde17c8bad08c897"
-};
+            apiKey: "AIzaSyDC63eGF-F7ftg-gXv-YjsShTVzRPD91Qw",
+            authDomain: "mystery-trial.firebaseapp.com",
+            databaseURL: "https://mystery-trial-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "mystery-trial",
+            storageBucket: "mystery-trial.firebasestorage.app",
+            messagingSenderId: "320751112246",
+            appId: "1:320751112246:web:eb17abbde17c8bad08c897"
+        };
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
@@ -37,9 +57,10 @@
         const tagId = params.get('id');
 
         const messageMaster = {
-            "くさり": "た", "りんご": "す", "ごりら": "け",
-            "らっぱ": "て", "ぱんつ": "く", "つくえ": "れ",
-            "えんとつ": "て", "つみき": "あ", "きつつき": "り"
+            "そのまま": "そのまま",
+            "おひつじ": "お", "おうし": "が", "ふたご": "わ", "かに": "ほ",
+            "しし": "し", "おとめ": "の", "てんびん": "あ", "さそり": "り",
+            "いて": "ず", "やぎ": "み", "みずがめ": "い", "うお": "よ"
         };
 
         let inputHistory = [];
@@ -49,38 +70,67 @@
             const data = tagSnapshot.val();
             if (!data) return;
 
+            // 星座メモ用のHTML生成
+            let zodiacHTML = `<table class="zodiac-table"><tr><th>星座</th><th>文字</th></tr>`;
+            Object.keys(messageMaster).forEach(key => {
+                if (key === "そのまま") return;
+                zodiacHTML += `
+                    <tr>
+                        <td>${key}座</td>
+                        <td><input type="text" class="z-input" data-ans="${messageMaster[key]}" maxlength="1"></td>
+                    </tr>`;
+            });
+            zodiacHTML += `</table>`;
+
             document.getElementById('main-content').innerHTML = `
                 <h3>管理者：${data.playerName} さん</h3>
-                <p>回答を入力してモニターに送る</p>
                 <input type="text" id="ansInput" placeholder="答えを入力">
                 <button id="sendBtn">送信</button>
+                <div id="secret-msg">✨ 指示：モニターに「いのり」と表示させよう ✨</div>
                 <hr>
+                ${zodiacHTML}
                 <button class="danger-btn" id="resetBtn">モニターリセット</button>
             `;
 
+            // 星座入力のリアルタイム判定イベント
+            document.querySelectorAll('.z-input').forEach(input => {
+                input.addEventListener('input', checkZodiacPuzzle);
+            });
+
             document.getElementById('sendBtn').onclick = async () => {
                 const val = document.getElementById('ansInput').value.trim();
+                const msgRef = ref(db, 'mystery/messages');
+                const modeRef = ref(db, 'mystery/mode');
                 
-                // クリア判定
-                if (val === "たすけてくれてあり") {
-                    window.location.href = `clear.html?id=${tagId}`;
+                // --- クリア判定（モニターが「お」「わ」「り」の順の時のみ許可） ---
+                if (val === "おわり") {
+                    const snap = await get(msgRef);
+                    const list = snap.val() || [];
+                    
+                    const isCorrectOrder = list.length === 3 && 
+                                           list[0] === "お" && 
+                                           list[1] === "わ" && 
+                                           list[2] === "り";
+
+                    if (isCorrectOrder) {
+                        window.location.href = `clear.html?id=${tagId}`;
+                    } else {
+                        alert("まだ終われません。モニターの表示順を「お」「わ」「り」に揃えてください。");
+                    }
                     return;
                 }
 
                 const result = messageMaster[val];
                 if (result) {
-                    const msgRef = ref(db, 'mystery/messages');
-                    const modeRef = ref(db, 'mystery/mode');
-                    
                     inputHistory.push(val);
                     if (inputHistory.length > 3) inputHistory.shift();
 
-                    const secretCombo = ["くさり", "りんご", "ごりら"];
-                    const isCombo = secretCombo.every((v, i) => v === inputHistory[i]);
+                    const secretCombo = ["みずがめ", "おとめ", "さそり"];
+                    const isCombo = (inputHistory.length === 3) && secretCombo.every((v, i) => v === inputHistory[i]);
 
                     if (isCombo) {
                         await set(modeRef, "special");
-                        alert("【警告】システムが特殊モードに移行しました！");
+                        alert("「そのまま」と打とう");
                     }
 
                     const snap = await get(msgRef);
@@ -88,11 +138,18 @@
                     const modeSnap = await get(modeRef);
                     const isSpecial = modeSnap.val() === "special";
 
-                    if (!isSpecial && list.length >= 3) list = [];
+                    if (!isSpecial && list.length >= 3 && val !== "そのまま") {
+                        list = [];
+                    }
                     
                     list.push(result);
                     await set(msgRef, list);
-                    alert(`「${val}」を送信しました。`);
+                    
+                    if (val === "そのまま") {
+                        alert("システムコマンド「そのまま」を送信しました。");
+                    } else {
+                        alert(`「${val}」を送信しました。`);
+                    }
                     document.getElementById('ansInput').value = "";
                 } else {
                     alert("キーワードが違います。");
@@ -108,6 +165,23 @@
                 }
             };
         }
+
+        // 星座メモの正誤判定
+        function checkZodiacPuzzle() {
+            const inputs = document.querySelectorAll('.z-input');
+            let correctCount = 0;
+            inputs.forEach(input => {
+                if (input.value === input.dataset.ans) correctCount++;
+            });
+
+            if (correctCount === 12) {
+                const bg = document.getElementById('body-bg');
+                bg.classList.add('flash-effect');
+                setTimeout(() => bg.classList.remove('flash-effect'), 500);
+                document.getElementById('secret-msg').style.display = "block";
+            }
+        }
+
         init();
     </script>
 </body>
