@@ -111,14 +111,25 @@
                 const modeRef = ref(db, 'mystery/mode');
                 
                 if (val === "おわり") {
-                    const snap = await get(msgRef);
-                    const list = snap.val() || [];
-                    const filtered = list.filter(i => i !== "そのまま");
-                    const isCorrect = filtered.length === 3 && filtered[0] === "お" && filtered[1] === "わ" && filtered[2] === "り";
-                    if (isCorrect) { window.location.href = `clear.html?id=${tagId}`; }
-                    else { alert("モニターの表示順を「お」「わ」「り」に揃えてください。"); }
-                    return;
-                }
+    const snap = await get(msgRef);
+    const rawList = snap.val() || [];
+    
+    // ★ 修正：システム用文字列「そのまま」を判定から除外する
+    const filteredList = rawList.filter(item => item !== "そのまま");
+    
+    // 純粋な回答が3つで、かつ「お」「わ」「り」の順かチェック
+    const isCorrect = filteredList.length === 3 && 
+                      filteredList[0] === "お" && 
+                      filteredList[1] === "わ" && 
+                      filteredList[2] === "り";
+
+    if (isCorrect) {
+        window.location.href = `clear.html?id=${tagId}`;
+    } else {
+        alert("まだ終われません。モニターの表示を「お」「わ」「り」の順に揃えてください。");
+    }
+    return;
+}
 
                 const result = messageMaster[val];
                 if (result) {
