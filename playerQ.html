@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>解析ミッション</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; background: #eef2f3; }
+        .box { max-width: 450px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .cipher-container { background: #eee; padding: 15px; border: 2px dashed #333; margin: 15px 0; }
+        .cipher { font-size: 1.6rem; letter-spacing: 2px; font-weight: bold; margin-bottom: 10px; color: #333; }
+        .hint-text { font-size: 0.9rem; color: #d9534f; font-weight: bold; border-top: 1px solid #ccc; padding-top: 10px; margin-top: 10px; display: block; }
+        .instruction { font-size: 1rem; color: #555; margin-top: 20px; line-height: 1.6; }
+        .target-name { font-size: 1.2rem; color: #007bff; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div id="main-content" class="box">読み込み中...</div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js";
+        import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-database.js";
+
+        // Firebase設定
+        const firebaseConfig = {
+            apiKey: "AIzaSyDj3T3b4fdLD83kC_RAp2Wg5cFw7VE_x0s",
+            authDomain: "realtime-database-c26e9.firebaseapp.com",
+            projectId: "realtime-database-c26e9",
+            storageBucket: "realtime-database-c26e9.firebasestorage.app",
+            messagingSenderId: "397939201496",
+            appId: "1:397939201496:web:3b651c82fdbda090ee4ead",
+            databaseURL: "https://realtime-database-c26e9-default-rtdb.asia-southeast1.firebasedatabase.app"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        const params = new URLSearchParams(window.location.search);
+        const tagId = params.get('id');
+
+        // ローマ字変換マップ
+        const kanaMap = {
+            'あ':'A','い':'I','う':'U','え':'E','お':'O',
+            'か':'KA','き':'KI','く':'KU','け':'KE','こ':'KO',
+            'さ':'SA','し':'SHI','す':'SU','せ':'SE','そ':'SO',
+            'た':'TA','ち':'CHI','つ':'TSU','て':'TE','と':'TO',
+            'な':'NA','に':'NI','ぬ':'NU','ね':'NE','の':'NO',
+            'は':'HA','ひ':'HI','ふ':'FU','へ':'HE','ほ':'HO',
+            'ま':'MA','み':'MI','む':'MU','め':'ME','も':'MO',
+            'や':'YA','ゆ':'YU','よ':'YO',
+            'ら':'RA','り':'RI','る':'RU','れ':'RE','ろ':'RO',
+            'わ':'WA','を':'WO','ん':'N',
+            'が':'GA','ぎ':'GI','ぐ':'GU','げ':'GE','ご':'GO',
+            'ざ':'ZA','じ':'JI','ず':'ZU','ぜ':'ZE','ぞ':'ZO',
+            'だ':'DA','ぢ':'JI','づ':'ZU','で':'DE','ど':'DO',
+            'ば':'BA','び':'BI','ぶ':'BU','べ':'BE','ぼ':'BO',
+            'ぱ':'PA','ぴ':'PI','ぷ':'PU','ぺ':'PE','ぽ':'PO',
+            'ぁ':'A','ぃ':'I','ぅ':'U','ぇ':'E','ぉ':'O',
+            'っ':'','ゃ':'YA','ゅ':'YU','ょ':'YO','ゎ':'WA'
+        };
+
+        function toCipher(name) {
+            let roman = "";
+            for (let char of name) { roman += kanaMap[char] || ""; }
+            return roman.split('').map(c => c.charCodeAt(0) - 64).join(", ");
+        }
+
+        async function init() {
+            if (!tagId) {
+                document.getElementById('main-content').innerText = "タグ情報が読み込めません。";
+                return;
+            }
+
+            const tagSnapshot = await get(ref(db, `tags/${tagId}`));
+            const data = tagSnapshot.val();
+            
+            if (!data) {
+                document.getElementById('main-content').innerText = "このタグにはまだ誰も登録していません。";
+                return;
+            }
+
+            const cipherText = toCipher(data.playerName);
+            document.getElementById('main-content').innerHTML = `
+                <h2>解析ミッション</h2>
+                <p>このタグの所有者：<br><span class="target-name">${data.playerName}</span></p>
+                
+                <div class="cipher-container">
+                    <div class="cipher">${cipherText}</div>
+                    <span class="hint-text">答え＝1  19,8,9 20,1</span>
+                </div>
+
+                <div class="instruction">
+                    <p>この暗号を解き、導き出されたキーワードを<br><strong>所有者（${data.playerName}さん）</strong>の端末に<br>入力してもらってください。</p>
+                </div>
+            `;
+        }
+        init();
+    </script>
+</body>
+</html>

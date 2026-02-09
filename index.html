@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登録システム</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f0f2f5; }
+        .card { max-width: 400px; margin: 50px auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        input { padding: 12px; width: 100%; box-sizing: border-box; margin: 15px 0; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; }
+        button { padding: 12px; width: 100%; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div id="loading">確認中...</div>
+        <div id="reg-view" class="hidden">
+            <h2>プレイヤー登録</h2>
+            <p>名前を<strong>「ひらがな」</strong>で入力してください</p>
+            <input type="text" id="playerName" placeholder="たなか">
+            <button id="regBtn">登録して開始</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js";
+        import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-database.js";
+
+        // Firebase設定
+        const firebaseConfig = {
+            apiKey: "AIzaSyDj3T3b4fdLD83kC_RAp2Wg5cFw7VE_x0s",
+            authDomain: "realtime-database-c26e9.firebaseapp.com",
+            projectId: "realtime-database-c26e9",
+            storageBucket: "realtime-database-c26e9.firebasestorage.app",
+            messagingSenderId: "397939201496",
+            appId: "1:397939201496:web:3b651c82fdbda090ee4ead",
+            databaseURL: "https://realtime-database-c26e9-default-rtdb.asia-southeast1.firebasedatabase.app"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // 端末ID管理
+        let myId = localStorage.getItem('mystery_user_id') || ('user_' + Math.random().toString(36).substr(2, 9));
+        localStorage.setItem('mystery_user_id', myId);
+
+        const params = new URLSearchParams(window.location.search);
+        const tagId = params.get('id');
+
+        async function init() {
+            if (!tagId) { document.body.innerText = "タグIDがありません"; return; }
+
+            const tagRef = ref(db, `tags/${tagId}`);
+            const snapshot = await get(tagRef);
+            const now = Date.now();
+            const EXPIRE_TIME = 3 * 60 * 60 * 1000;
+
+            document.getElementById('loading').classList.add('hidden');
+
+            if (!snapshot.exists() || (now - snapshot.val().timestamp > EXPIRE_TIME)) {
+                // 【ケース1】未登録、または3時間以上経過（リセット）
+                document.getElementById('reg-view').classList.remove('hidden');
+                document.getElementById('regBtn').onclick = async () => {
+                    const name = document.getElementById('playerName').value.trim();
+                    if (!name) return alert("名前を入力してください");
+                    
+                    await set(tagRef, { 
+                        ownerId: myId, 
+                        playerName: name, 
+                        timestamp: now 
+                    });
+                    // 登録直後は本人なので player.html へ
+                    window.location.href = `player.html?id=${tagId}`;
+                };
+            } else {
+                // 【ケース2】登録済み：本人か他人か判定
+                const data = snapshot.val();
+                if (data.ownerId === myId) {
+                    // 本人の場合
+                    window.location.href = `player.html?id=${tagId}`;
+                } else {
+                    // 他人の場合（ここが playerQ.html へ飛ぶ新ロジック）
+                    window.location.href = `playerQ.html?id=${tagId}`;
+                }
+            }
+        }
+        init();
+    </script>
+</body>
+</html>

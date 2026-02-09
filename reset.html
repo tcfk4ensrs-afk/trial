@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <h2>全データリセット</h2>
+    <button onclick="resetAll()">全タグの登録を解除する</button>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js";
+        import { getDatabase, ref, remove } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-database.js";
+
+        const firebaseConfig = { /* あなたの設定 */ };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        window.resetAll = async () => {
+            if(confirm("全てのプレイヤー登録をリセットしてよろしいですか？")){
+                await remove(ref(db, 'tags')); // 'tags' 以下のデータを全削除
+                alert("リセット完了しました。");
+            }
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>メインモニター - 高度解析システム</title>
+    <style>
+        body { 
+            background: #000; 
+            color: #0f0; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0;
+            font-family: 'Courier New', monospace; 
+            overflow: hidden;
+            transition: color 0.2s;
+        }
+
+        #output { 
+            font-size: 3.5vw; 
+            text-shadow: 0 0 10px #0f0; 
+            width: 85%;
+            line-height: 1.8;
+            text-align: center;
+            white-space: pre-wrap;
+            position: relative;
+            z-index: 5;
+        }
+
+        /* --- 演出用：文字化け・崩壊 --- */
+        .corrupting {
+            animation: glitch-corrupt 0.1s infinite;
+            filter: blur(1px);
+        }
+        @keyframes glitch-corrupt {
+            0% { transform: translate(2px, -2px); }
+            50% { transform: translate(-2px, 2px) skew(10deg); opacity: 0.8; }
+            100% { transform: translate(0,0); }
+        }
+
+        /* --- 演出用：ノイズレイヤー --- */
+        #noise-screen {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: url('https://upload.wikimedia.org/wikipedia/commons/5/5a/Canal_9_Static.gif');
+            opacity: 0;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .show-noise { opacity: 0.5 !important; }
+        .full-noise { opacity: 1.0 !important; }
+
+        /* --- 特殊モード（起動後） --- */
+        body.special-mode { background: #000; color: #f00; }
+        body.special-mode #output { text-shadow: 0 0 15px #f00; }
+
+        /* --- シャットダウン演出用：画面が閉じる線 --- */
+        #shutdown-line {
+            position: fixed;
+            top: 50%; left: 0; width: 100%; height: 2px;
+            background: #fff;
+            transform: scaleX(0);
+            z-index: 101;
+            display: none;
+            transition: transform 0.2s;
+        }
+
+        #output::after { content: "|"; animation: blink 1s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+    </style>
+</head>
+<body>
+    <div id="noise-screen"></div>
+    <div id="shutdown-line"></div>
+    <div id="output">SYSTEM READY...</div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDj3T3b4fdLD83kC_RAp2Wg5cFw7VE_x0s",
+            authDomain: "realtime-database-c26e9.firebaseapp.com",
+            projectId: "realtime-database-c26e9",
+            storageBucket: "realtime-database-c26e9.firebasestorage.app",
+            messagingSenderId: "397939201496",
+            appId: "1:397939201496:web:3b651c82fdbda090ee4ead",
+            databaseURL: "https://realtime-database-c26e9-default-rtdb.asia-southeast1.firebasedatabase.app"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        const outputElement = document.getElementById('output');
+        const noiseScreen = document.getElementById('noise-screen');
+        const shutdownLine = document.getElementById('shutdown-line');
+        let typeTimer = null;
+        let currentMode = "normal";
+        let isFirstSpecial = true;
+
+        // シャッフル関数
+        function shuffle(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        function typeWriter(text, speed = 70) {
+            if (typeTimer) clearInterval(typeTimer);
+            outputElement.innerText = "";
+            let i = 0;
+            typeTimer = setInterval(() => {
+                if (i < text.length) {
+                    outputElement.innerText += text.charAt(i);
+                    i++;
+                } else {
+                    clearInterval(typeTimer);
+                }
+            }, speed); 
+        }
+
+        function getGarbageText(length) {
+            const chars = "ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ@#$%&*?<>∑Ω≈";
+            return Array.from({length}, () => chars[Math.floor(Math.random()*chars.length)]).join("");
+        }
+
+        // 緊急モード時のリスト表示（シャッフル＋指定文言）
+      function showSpecialList(list) {
+    // shuffleを使わず、元のlistをそのままjoinする
+    const specialContent = "必要なキーワードをすべて送ってください。\n\n" + list.join("  ");
+    typeWriter(specialContent, 30);
+}
+
+        async function triggerSpecialSequence(list) {
+            outputElement.classList.add('corrupting');
+            let count = 0;
+            const corruptInterval = setInterval(() => {
+                outputElement.innerText = getGarbageText(50);
+                if (count++ > 20) {
+                    clearInterval(corruptInterval);
+                    noiseScreen.classList.add('show-noise');
+                    setTimeout(shutdown, 500);
+                }
+            }, 100);
+
+            function shutdown() {
+                noiseScreen.classList.remove('show-noise');
+                outputElement.innerText = "";
+                shutdownLine.style.display = "block";
+                setTimeout(() => { shutdownLine.style.transform = "scaleX(1)"; }, 10);
+                setTimeout(() => {
+                    shutdownLine.style.transform = "scaleX(0)";
+                    setTimeout(reboot, 1500);
+                }, 200);
+            }
+
+            function reboot() {
+                noiseScreen.classList.add('full-noise');
+                setTimeout(() => {
+                    noiseScreen.classList.remove('full-noise');
+                    document.body.classList.add('special-mode');
+                    showSpecialList(list);
+                }, 800);
+            }
+        }
+
+        onValue(ref(db, 'mystery/mode'), (modeSnap) => {
+            const nextMode = modeSnap.val();
+            const messagesRef = ref(db, 'mystery/messages');
+
+            onValue(messagesRef, (msgSnap) => {
+                const list = msgSnap.val() || [];
+                
+                // 緊急モードへの移行
+                if (nextMode === "special") {
+                    if (currentMode === "normal") {
+                        currentMode = "special";
+                        if (isFirstSpecial) {
+                            isFirstSpecial = false;
+                            triggerSpecialSequence(list);
+                        } else {
+                            document.body.classList.add('special-mode');
+                            showSpecialList(list);
+                        }
+                    } else {
+                        // 緊急モード中の更新
+                        document.body.classList.add('special-mode');
+                        showSpecialList(list);
+                    }
+                    return;
+                }
+
+                // 通常モード
+                if (nextMode === "normal") {
+                    currentMode = "normal";
+                    isFirstSpecial = true;
+                    document.body.classList.remove('special-mode');
+                    outputElement.classList.remove('corrupting');
+                    shutdownLine.style.display = "none";
+                    
+                    if (list.length === 0) {
+                        typeWriter("システム待機中...\nキーワードを入力してください。");
+                    } else if (list.length === 1) {
+                        typeWriter("キーワードを1つ受信しました。\n残り2つです。");
+                    } else if (list.length === 2) {
+                        typeWriter("キーワードを2つ受信しました。\n残り1つです。");
+                    } else {
+                        // 3つ揃った場合：指定文言 ＋ シャッフル
+                        const shuffled = shuffle(list);
+                        const finalContent = "解析が完了しました。回答を表示します：\n\n" + shuffled.join("  ");
+                        typeWriter(finalContent);
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
