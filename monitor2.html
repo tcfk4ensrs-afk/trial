@@ -93,7 +93,7 @@
         // 緊急モード時のリスト表示（「そのまま」を除外して表示）
         function showSpecialList(list) {
             const filtered = list.filter(item => item !== "そのまま");
-            const specialContent = "必要なキーワードをすべて送ってください。\n\n" + filtered.join("  ");
+            const specialContent = "「そのまま」と送ってください\n\n" + filtered.join("  ");
             typeWriter(specialContent, 30);
         }
 
