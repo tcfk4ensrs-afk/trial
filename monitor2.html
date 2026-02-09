@@ -5,15 +5,46 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>メインモニター - 高度解析システム</title>
     <style>
-        body { background: #000; color: #0f0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: 'Courier New', monospace; overflow: hidden; transition: color 0.2s; }
-        #output { font-size: 3.5vw; text-shadow: 0 0 10px #0f0; width: 85%; line-height: 1.8; text-align: center; white-space: pre-wrap; position: relative; z-index: 5; }
+        /* 背景色・文字色の基本設定（緑） */
+        body { 
+            background: #000; 
+            color: #0f0; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0; 
+            font-family: 'Courier New', monospace; 
+            overflow: hidden; 
+            transition: color 0.3s, text-shadow 0.3s; 
+        }
+
+        #output { 
+            font-size: 3.5vw; 
+            text-shadow: 0 0 10px #0f0; 
+            width: 85%; 
+            line-height: 1.8; 
+            text-align: center; 
+            white-space: pre-wrap; 
+            position: relative; 
+            z-index: 5; 
+        }
+
+        /* --- モード別配色 --- */
+        body.special-mode { color: #f00; } /* 緊急モード：赤 */
+        body.special-mode #output { text-shadow: 0 0 15px #f00; }
+
+        body.list-display-mode { color: #00f; } /* リスト表示モード：青 */
+        body.list-display-mode #output { text-shadow: 0 0 15px #00f; }
+
+        /* --- 演出用エフェクト --- */
         .corrupting { animation: glitch-corrupt 0.1s infinite; filter: blur(1px); }
         @keyframes glitch-corrupt { 0% { transform: translate(2px, -2px); } 50% { transform: translate(-2px, 2px) skew(10deg); opacity: 0.8; } 100% { transform: translate(0,0); } }
+        
         #noise-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: url('https://upload.wikimedia.org/wikipedia/commons/5/5a/Canal_9_Static.gif'); opacity: 0; pointer-events: none; z-index: 100; }
         .show-noise { opacity: 0.5 !important; }
         .full-noise { opacity: 1.0 !important; }
-        body.special-mode { background: #000; color: #f00; }
-        body.special-mode #output { text-shadow: 0 0 15px #f00; }
+
         #shutdown-line { position: fixed; top: 50%; left: 0; width: 100%; height: 2px; background: #fff; transform: scaleX(0); z-index: 101; display: none; transition: transform 0.2s; }
         #output::after { content: "|"; animation: blink 1s infinite; }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
@@ -47,9 +78,8 @@
         let typeTimer = null;
         let currentMode = "normal";
         let isFirstSpecial = true;
-        let isSortedMode = false; // 「そのまま」モードフラグ
 
-        // 基本のシャッフル関数
+        // シャッフル・セーフガード
         function shuffle(array) {
             const arr = [...array];
             for (let i = arr.length - 1; i > 0; i--) {
@@ -59,11 +89,9 @@
             return arr;
         }
 
-        // セーフシャッフル：偶然「お」「わ」「り」の順にならないようにする
         function safeShuffle(array) {
             if (array.length !== 3) return shuffle(array);
-            let result;
-            let isOwari;
+            let result, isOwari;
             do {
                 result = shuffle(array);
                 isOwari = (result[0] === "お" && result[1] === "わ" && result[2] === "り");
@@ -76,119 +104,93 @@
             outputElement.innerText = "";
             let i = 0;
             typeTimer = setInterval(() => {
-                if (i < text.length) {
-                    outputElement.innerText += text.charAt(i);
-                    i++;
-                } else {
-                    clearInterval(typeTimer);
-                }
+                if (i < text.length) { outputElement.innerText += text.charAt(i); i++; }
+                else { clearInterval(typeTimer); }
             }, speed); 
         }
 
-        function getGarbageText(length) {
-            const chars = "ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ@#$%&*?<>∑Ω≈";
-            return Array.from({length}, () => chars[Math.floor(Math.random()*chars.length)]).join("");
-        }
-
-        // 緊急モード時のリスト表示（「そのまま」を除外して表示）
-        function showSpecialList(list) {
-            const filtered = list.filter(item => item !== "そのまま");
-            const specialContent = "「そのまま」と送ってください\n\n" + filtered.join("  ");
-            typeWriter(specialContent, 30);
-        }
-
+        // 緊急モード演出
         async function triggerSpecialSequence(list) {
             outputElement.classList.add('corrupting');
             let count = 0;
             const corruptInterval = setInterval(() => {
-                outputElement.innerText = getGarbageText(50);
+                const chars = "ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ@#$%&*?<>∑Ω≈";
+                outputElement.innerText = Array.from({length:50}, () => chars[Math.floor(Math.random()*chars.length)]).join("");
                 if (count++ > 20) {
                     clearInterval(corruptInterval);
                     noiseScreen.classList.add('show-noise');
-                    setTimeout(shutdown, 500);
+                    setTimeout(() => {
+                        noiseScreen.classList.remove('show-noise');
+                        outputElement.innerText = "";
+                        shutdownLine.style.display = "block";
+                        setTimeout(() => shutdownLine.style.transform = "scaleX(1)", 10);
+                        setTimeout(() => {
+                            shutdownLine.style.transform = "scaleX(0)";
+                            setTimeout(() => {
+                                noiseScreen.classList.add('full-noise');
+                                setTimeout(() => {
+                                    noiseScreen.classList.remove('full-noise');
+                                    document.body.className = "special-mode";
+                                    showSpecialList(list);
+                                }, 800);
+                            }, 1500);
+                        }, 200);
+                    }, 500);
                 }
             }, 100);
-
-            function shutdown() {
-                noiseScreen.classList.remove('show-noise');
-                outputElement.innerText = "";
-                shutdownLine.style.display = "block";
-                setTimeout(() => { shutdownLine.style.transform = "scaleX(1)"; }, 10);
-                setTimeout(() => {
-                    shutdownLine.style.transform = "scaleX(0)";
-                    setTimeout(reboot, 1500);
-                }, 200);
-            }
-
-            function reboot() {
-                noiseScreen.classList.add('full-noise');
-                setTimeout(() => {
-                    noiseScreen.classList.remove('full-noise');
-                    document.body.classList.add('special-mode');
-                    showSpecialList(list);
-                }, 800);
-            }
         }
 
+        function showSpecialList(list) {
+            const filtered = list.filter(item => item !== "そのまま");
+            typeWriter("「そのまま」と送ってください\n\n" + filtered.join("  "), 30);
+        }
+
+        // --- Firebase監視ロジック ---
         onValue(ref(db, 'mystery/mode'), (modeSnap) => {
             const nextMode = modeSnap.val();
-            const messagesRef = ref(db, 'mystery/messages');
-
-            onValue(messagesRef, (msgSnap) => {
+            onValue(ref(db, 'mystery/messages'), (msgSnap) => {
                 const list = msgSnap.val() || [];
-                
-                // 「そのまま」が含まれているかチェック
-                if (list.includes("そのまま")) {
-                    isSortedMode = true;
-                }
+                const isSortedMode = list.includes("そのまま");
+                const filtered = list.filter(item => item !== "そのまま");
 
-                // リセット時にフラグを初期化
+                // 【機能復旧】リセット検知
                 if (nextMode === "normal" && list.length === 0) {
-                    isSortedMode = false;
-                }
-
-                // 緊急モードへの移行
-                if (nextMode === "special") {
-                    if (currentMode === "normal") {
-                        currentMode = "special";
-                        if (isFirstSpecial) {
-                            isFirstSpecial = false;
-                            triggerSpecialSequence(list);
-                        } else {
-                            document.body.classList.add('special-mode');
-                            showSpecialList(list);
-                        }
-                    } else {
-                        document.body.classList.add('special-mode');
-                        showSpecialList(list);
-                    }
+                    currentMode = "normal"; isFirstSpecial = true;
+                    document.body.className = "";
+                    outputElement.classList.remove('corrupting');
+                    shutdownLine.style.display = "none";
+                    typeWriter("システム待機中...\nキーワードを入力してください。");
                     return;
                 }
 
-                // 通常モード
-                if (nextMode === "normal") {
-                    currentMode = "normal";
-                    isFirstSpecial = true;
-                    document.body.classList.remove('special-mode');
-                    outputElement.classList.remove('corrupting');
-                    shutdownLine.style.display = "none";
+                // 緊急モード（赤）
+                if (nextMode === "special") {
+                    if (currentMode === "normal") {
+                        currentMode = "special";
+                        if (isFirstSpecial) { isFirstSpecial = false; triggerSpecialSequence(list); }
+                        else { document.body.className = "special-mode"; showSpecialList(list); }
+                    } else { document.body.className = "special-mode"; showSpecialList(list); }
+                    return;
+                }
 
-                    // 「そのまま」を除外したリストを作成
-                    const filtered = list.filter(item => item !== "そのまま");
-                    
-                    if (filtered.length === 0) {
-                        typeWriter("システム待機中...\nキーワードを入力してください。");
-                    } else if (filtered.length === 1) {
-                        typeWriter("キーワードを1つ受信しました。\n残り2つです。");
-                    } else if (filtered.length === 2) {
-                        typeWriter("キーワードを2つ受信しました。\n残り1つです。");
-                    } else {
-                        // 3つ揃った場合
-                        // isSortedModeならそのまま、そうでなければsafeShuffle
-                        const displayList = isSortedMode ? filtered : safeShuffle(filtered);
-                        const finalContent = "解析が完了しました。回答を表示します：\n\n" + displayList.join("  ");
-                        typeWriter(finalContent);
-                    }
+                // 通常（緑） or リスト表示（青）
+                currentMode = "normal"; isFirstSpecial = true;
+                outputElement.classList.remove('corrupting');
+                shutdownLine.style.display = "none";
+
+                // 【機能復旧】リスト表示モードなら青色にする
+                document.body.className = isSortedMode ? "list-display-mode" : "";
+
+                if (filtered.length === 0) {
+                    typeWriter("システム待機中...\nキーワードを入力してください。");
+                } else if (filtered.length < 3) {
+                    typeWriter(`キーワードを${filtered.length}つ受信しました。\n残り${3 - filtered.length}つです。`);
+                } else {
+                    // 3つ揃った場合：最新の3つを抽出（ところてん対応）
+                    const targetList = filtered.slice(-3);
+                    const displayList = isSortedMode ? targetList : safeShuffle(targetList);
+                    const finalContent = "解析が完了しました。回答を表示します：\n\n" + displayList.join("  ");
+                    typeWriter(finalContent);
                 }
             });
         });
