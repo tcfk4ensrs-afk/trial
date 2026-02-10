@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>全データリセット - 管理画面</title>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body { font-family: sans-serif; text-align: center; padding: 50px; background: #f8f9fa; }
         .container { max-width: 400px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
@@ -49,21 +50,36 @@
         const db = getDatabase(app);
 
         window.resetAll = async () => {
-            if(confirm("全てのプレイヤー登録とゲームの進捗をリセットしてよろしいですか？\nこの操作は取り消せません。")){
+            // SweetAlert2 を使った確認ダイアログ
+            const result = await Swal.fire({
+                title: '本当にリセットしますか？',
+                text: "この操作は取り消せません。全ての進捗が失われます。",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'はい、リセットします',
+                cancelButtonText: 'キャンセル'
+            });
+
+            if (result.isConfirmed) {
                 try {
                     // 1. プレイヤー登録データ(tags)を削除
                     await remove(ref(db, 'tags'));
-                    
                     // 2. モニターのメッセージ(messages)を削除
                     await remove(ref(db, 'mystery/messages'));
-                    
                     // 3. モードを normal に戻す
                     await set(ref(db, 'mystery/mode'), "normal");
-                    
-                    alert("すべてのデータをリセットし、初期状態に戻しました。");
+
+                    // 完了通知のポップアップ
+                    Swal.fire(
+                        'リセット完了',
+                        'すべてのデータを初期状態に戻しました。',
+                        'success'
+                    );
                 } catch (e) {
                     console.error(e);
-                    alert("リセット中にエラーが発生しました。");
+                    Swal.fire('エラー', 'リセット中に問題が発生しました。', 'error');
                 }
             }
         };
